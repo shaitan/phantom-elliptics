@@ -1,3 +1,9 @@
+phantom-elliptics (1.1.1-ell2.26) unstable; urgency=low
+
+  * Renew phantom-elliptics with latest version of elliptics and phantom
+
+ -- Kirill Smorodinnikov <shaitan@s36h.xxx.yandex.net>  Mon, 29 Dec 2014 14:37:11 +0400
+
 phantom-elliptics (1.1.0-ell2.26) unstable; urgency=low
 
   * Updated for phantom-0.14.0~pre65 & elliptics-2.26
