@@ -1,5 +1,6 @@
 // This file is part of the phantom::io_benchmark module.
 // Copyright (C) 2013, Ruslan Nigmatullin <euroelessar@yandex.ru>.
+// Copyright (C) 2014+, Kirill Smorodinnikov <shaitkir@gmail.com>.
 // Copyright (C) 2013, YANDEX LLC.
 // This module may be distributed under the terms of the GNU LGPL 2.1.
 // See the file ‘COPYING’ or ‘http://www.gnu.org/licenses/lgpl-2.1.html’.
@@ -69,10 +70,32 @@ void method_elliptics_t::config_t::check(const in_t::ptr_t &ptr) const {
 		config::error(ptr, "source is required");
 }
 
-void method_elliptics_t::loggers_t::commit(const in_segment_t &request, const in_segment_t &tag, const result_t &res) const
-{
+void method_elliptics_t::loggers_t::init(string_t const &name) const {
+	for(size_t i = 0; i < size; ++i)
+		items[i]->init(name);
+}
+
+void method_elliptics_t::loggers_t::run(string_t const &name) const {
+	for(size_t i = 0; i < size; ++i)
+		items[i]->run(name);
+}
+
+void method_elliptics_t::loggers_t::stat_print(string_t const &name) const {
+	stat::ctx_t ctx(CSTR("loggers"), 1);
+	for(size_t i = 0; i < size; ++i)
+		items[i]->stat_print(name);
+}
+
+void method_elliptics_t::loggers_t::fini(string_t const &name) const {
+	for(size_t i = 0; i < size; ++i)
+		items[i]->fini(name);
+}
+
+void method_elliptics_t::loggers_t::commit(in_segment_t const &request, in_segment_t &tag, result_t const &res) const {
 	for(size_t i = 0; i < size; ++i) {
-		items[i]->commit(request, tag, res);
+		logger_t *logger = items[i];
+		if(res.log_level >= logger->level)
+			logger->commit(request, tag, res);
 	}
 }
 
@@ -98,6 +121,7 @@ namespace ipv4 {
 config_binding_sname(method_elliptics_ipv4_t);
 config_binding_value(method_elliptics_ipv4_t, address);
 config_binding_parent(method_elliptics_ipv4_t, method_elliptics_t);
+config_binding_cast(method_elliptics_ipv4_t, method_t);
 config_binding_ctor(method_t, method_elliptics_ipv4_t);
 }
 
@@ -105,6 +129,7 @@ namespace ipv6 {
 config_binding_sname(method_elliptics_ipv6_t);
 config_binding_value(method_elliptics_ipv6_t, address);
 config_binding_parent(method_elliptics_ipv6_t, method_elliptics_t);
+config_binding_cast(method_elliptics_ipv6_t, method_t);
 config_binding_ctor(method_t, method_elliptics_ipv6_t);
 }
 
@@ -229,8 +254,8 @@ static dnet_config create_config(const method_elliptics_t::config_t &config) {
 	return cfg;
 }
 
-method_elliptics_t::method_elliptics_t(const string_t &, const config_t &config) :
-	method_t(STRING("elliptics")), logger(create_logger(config)), cfg(create_config(config)),
+method_elliptics_t::method_elliptics_t(const string_t &name, const config_t &config) :
+	method_t(name), logger(create_logger(config)), cfg(create_config(config)),
 	source(*config.source), stat(*new stat_t), loggers(*new loggers_t(config.loggers))
 {
 
@@ -381,22 +406,28 @@ bool method_elliptics_t::test(times_t &times) const
 
 void method_elliptics_t::do_init()
 {
-	source.init();
+	stat.init();
+	source.init(name);
+	loggers.init(name);
 }
 
 void method_elliptics_t::do_fini()
 {
-	source.fini();
+	source.fini(name);
+	loggers.fini(name);
 }
 
 void method_elliptics_t::do_run() const
 {
-	source.run();
+	source.run(name);
+	loggers.run(name);
 }
 
 void method_elliptics_t::do_stat_print() const
 {
 	stat.print();
+	source.stat_print(name);
+	loggers.stat_print(name);
 }
 
 method_elliptics_ipv4_t::config_t::config_t() throw()
@@ -428,12 +459,11 @@ method_elliptics_ipv4_t::method_elliptics_ipv4_t(const string_t &s, const config
 }
 
 method_elliptics_ipv4_t::~method_elliptics_ipv4_t() throw()
-{
-}
+{}
 
 method_elliptics_ipv6_t::config_t::config_t() throw()
 {
-	family = AF_INET;
+	family = AF_INET6;
 }
 
 void method_elliptics_ipv6_t::config_t::check(const in_t::ptr_t &ptr) const
@@ -465,3 +495,31 @@ method_elliptics_ipv6_t::~method_elliptics_ipv6_t() throw()
 
 } // namespace io_benchmark
 } // namespace phantom
+
+namespace pd { namespace stat {
+
+typedef phantom::io_benchmark::method_elliptics::load_t load_t;
+
+template<>
+void ctx_t::helper_t<load_t>::print(
+	ctx_t &ctx, str_t const &_tag,
+	load_t const &, load_t::res_t const &res
+) {
+	if(ctx.pre(_tag, NULL, 0, NULL, 0)) {
+		uint64_t val = res.real > interval::zero ? (res.real - res.event) * 1000 / res.real : 0;
+
+		if(ctx.format == ctx.json) {
+			ctx.out.print(val / 1000)('.').print(val % 1000, "03");
+		}
+		else if(ctx.format == ctx.html) {
+			ctx.off();
+			ctx.out
+				(CSTR("<td>"))
+				.print(val / 1000)('.').print(val % 1000, "03")
+				(CSTR("</td>"))
+			;
+		}
+	}
+}
+
+}} // namespace pd::stat

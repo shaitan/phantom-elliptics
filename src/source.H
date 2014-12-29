@@ -1,5 +1,6 @@
 // This file is part of the phantom::io_benchmark module.
 // Copyright (C) 2013, Ruslan Nigmatullin <euroelessar@yandex.ru>.
+// Copyright (C) 2014+, Kirill Smorodinnikov <shaitkir@gmail.com>.
 // Copyright (C) 2013, YANDEX LLC.
 // This module may be distributed under the terms of the GNU LGPL 2.1.
 // See the file ‘COPYING’ or ‘http://www.gnu.org/licenses/lgpl-2.1.html’.
@@ -7,6 +8,7 @@
 #pragma once
 
 #include <phantom/pd.H>
+#include <phantom/shared.H>
 
 #include <pd/base/out.H>
 #include <pd/base/time.H>
@@ -42,16 +44,12 @@ struct request_t {
 	in_segment_t data;
 };
 
-class elliptics_source_t {
+class elliptics_source_t : public shared_t {
 public:
 	virtual bool get_request(request_t &request) const = 0;
-	virtual void init() = 0;
-	virtual void run() = 0;
-	virtual void stat_print() const = 0;
-	virtual void fini() = 0;
 
 protected:
-	inline elliptics_source_t() throw() { }
+	inline elliptics_source_t(string_t const &name) throw() : shared_t(name) { }
 	inline ~elliptics_source_t() throw() { }
 
 private: // don't use

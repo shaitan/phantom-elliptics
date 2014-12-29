@@ -275,18 +275,20 @@ private:
 	log_file_t *log_file;
 
 
+	virtual void do_init();
+	virtual void do_run() const { }
+	virtual void do_stat_print() const { stat.print(); }
+	virtual void do_fini();
+
 	virtual bool get_request(request_t &request) const;
-	virtual void init();
-	virtual void run();
-	virtual void stat_print() const;
-	virtual void fini();
+
 	typedef stat::mminterval_t delta_t;
 
 	typedef stat::items_t<delta_t> stat_base_t;
 
 	struct stat_t : stat_base_t {
 		inline stat_t() throw() : stat_base_t(
-		STRING("delta")
+			STRING("delta")
 		) { }
 
 		inline ~stat_t() throw() { }
@@ -298,9 +300,9 @@ private:
 
 
 public:
-	inline elliptics_source_log_t(string_t const &, config_t const &config) :
-		mutex(), fd(-1), ibuf_size(config.ibuf_size), filename(config.filename),
-		log_file(NULL) { }
+	inline elliptics_source_log_t(string_t const &name, config_t const &config) :
+		elliptics_source_t(name), mutex(), fd(-1), ibuf_size(config.ibuf_size),
+		filename(config.filename), log_file(NULL), stat() { }
 
 	inline ~elliptics_source_log_t() throw() { }
 };
@@ -309,10 +311,11 @@ namespace elliptics_source_log {
 config_binding_sname(elliptics_source_log_t);
 config_binding_value(elliptics_source_log_t, filename);
 config_binding_value(elliptics_source_log_t, ibuf_size);
+config_binding_cast(elliptics_source_log_t, elliptics_source_t);
 config_binding_ctor(elliptics_source_t, elliptics_source_log_t);
 }
 
-void elliptics_source_log_t::init() {
+void elliptics_source_log_t::do_init() {
 	MKCSTR(_filename, filename);
 
 	fd = open(_filename, O_RDONLY, 0);
@@ -320,15 +323,8 @@ void elliptics_source_log_t::init() {
 		throw exception_sys_t(log::error, errno, "open (%s): %m", _filename);
 
 	log_file = new log_file_t(ibuf_size, fd);
-}
 
-void elliptics_source_log_t::run()
-{
-}
-
-void elliptics_source_log_t::stat_print() const
-{
-	stat.print();
+	stat.init();
 }
 
 bool elliptics_source_log_t::get_request(request_t &request) const {
@@ -355,7 +351,7 @@ bool elliptics_source_log_t::get_request(request_t &request) const {
 	return res;
 }
 
-void elliptics_source_log_t::fini() {
+void elliptics_source_log_t::do_fini() {
 	log_file_t *_log_file = NULL;
 	{
 		mutex_guard_t guard(mutex);

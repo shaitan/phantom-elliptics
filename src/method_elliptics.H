@@ -1,5 +1,6 @@
 // This file is part of the phantom::io_benchmark module.
 // Copyright (C) 2013, Ruslan Nigmatullin <euroelessar@yandex.ru>.
+// Copyright (C) 2014+, Kirill Smorodinnikov <shaitkir@gmail.com>.
 // Copyright (C) 2013, YANDEX LLC.
 // This module may be distributed under the terms of the GNU LGPL 2.1.
 // See the file ‘COPYING’ or ‘http://www.gnu.org/licenses/lgpl-2.1.html’.
@@ -24,15 +25,14 @@ namespace phantom { namespace io_benchmark {
 namespace method_elliptics {
 class elliptics_source_t;
 class request_t;
-class stat_t;
+struct __hidden stat_t;
 }
 namespace method_stream {
 class logger_t;
 class result_t;
 }
 
-class method_elliptics_t : public method_t
-{
+class method_elliptics_t : public method_t {
 public:
 	typedef ioremap::elliptics::node elliptics_node_t;
 	typedef ioremap::elliptics::session elliptics_session_t;
@@ -48,11 +48,13 @@ public:
 protected:
 	struct loggers_t : sarray1_t<logger_t *>
 	{
-		inline loggers_t(const config::list_t<config::objptr_t<logger_t>> &list) throw() : sarray1_t<logger_t *>(list) {}
-		inline ~loggers_t() throw() {}
-
-		void commit(const in_segment_t &request, const in_segment_t &tag, const result_t &res) const;
-
+		inline loggers_t(config::list_t<config::objptr_t<logger_t>> const &list) : sarray1_t<logger_t *>(list) { }
+		inline ~loggers_t() throw() { }
+		void init(string_t const &name) const;
+		void run(string_t const &name) const;
+		void stat_print(string_t const &name) const;
+		void fini(string_t const &name) const;
+		void commit(in_segment_t const &request, in_segment_t &tag, result_t const &res) const;
 	};
 
 	elliptics_logger_base_t logger;
